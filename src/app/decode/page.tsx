@@ -217,18 +217,28 @@ export default function DecodePage() {
 
   return (
     <main 
-      className="min-h-screen bg-white text-black"
+      className="min-h-screen bg-[var(--background)]"
       onPaste={handlePaste}
       tabIndex={0}
     >
-      <div className="max-w-2xl mx-auto px-6 py-12">
+      <div className="max-w-2xl mx-auto px-8 py-16">
         {/* Header */}
-        <div className="flex justify-between items-center mb-16">
-          <Link href="/" className="font-mono text-sm text-neutral-500 hover:text-black">
-            ← encode
+        <header className="flex justify-between items-baseline mb-20">
+          <Link 
+            href="/" 
+            className="text-sm tracking-wider text-[var(--muted)] hover:text-[var(--foreground)] transition-colors uppercase"
+          >
+            <span className="mr-1">←</span> Encode
           </Link>
-          <h1 className="font-mono text-sm tracking-wide">decode</h1>
-        </div>
+          <h1 className="text-2xl font-light tracking-wide text-[var(--foreground)]">
+            Decode
+          </h1>
+        </header>
+
+        {/* Subtitle */}
+        <p className="text-[var(--muted)] text-lg font-light mb-12 max-w-md leading-relaxed">
+          Extract hidden UUIDs from screenshots. Drop an image or paste from your clipboard.
+        </p>
 
         {/* Drop Zone */}
         <div
@@ -237,10 +247,10 @@ export default function DecodePage() {
           onDragLeave={handleDragLeave}
           onClick={() => fileInputRef.current?.click()}
           className={`
-            cursor-pointer border transition-colors
+            cursor-pointer border transition-all duration-300 rounded-sm
             ${isDragging 
-              ? 'border-black bg-neutral-50' 
-              : 'border-neutral-300 hover:border-neutral-400'
+              ? 'border-[var(--accent)] bg-[var(--surface)] shadow-sm' 
+              : 'border-[var(--border)] hover:border-[var(--accent)]/50 hover:bg-[var(--surface)]/50'
             }
           `}
         >
@@ -252,9 +262,9 @@ export default function DecodePage() {
             className="hidden"
           />
           
-          <div className="py-16 px-8 text-center">
-            <p className="font-mono text-sm text-neutral-500">
-              {isDragging ? 'drop' : 'drop image or paste'}
+          <div className="py-20 px-8 text-center">
+            <p className="text-[var(--muted)] text-base font-light italic">
+              {isDragging ? 'Release to decode...' : 'Drop image or paste from clipboard'}
             </p>
           </div>
         </div>
@@ -264,10 +274,10 @@ export default function DecodePage() {
 
         {/* Results */}
         {(image || isProcessing || decodedUuids.length > 0 || debugInfo) && (
-          <div className="mt-8 space-y-6">
+          <div className="mt-12 space-y-8">
             {/* Preview */}
             {image && (
-              <div className="border border-neutral-200 p-2">
+              <div className="border border-[var(--border)] p-3 rounded-sm bg-[var(--surface)]">
                 <img 
                   src={image} 
                   alt="Screenshot" 
@@ -278,25 +288,30 @@ export default function DecodePage() {
 
             {/* Processing */}
             {isProcessing && (
-              <p className="font-mono text-sm text-neutral-500">scanning...</p>
+              <p className="text-[var(--muted)] text-base font-light italic animate-pulse">
+                Scanning for hidden data...
+              </p>
             )}
 
             {/* Decoded UUIDs */}
             {decodedUuids.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-4">
+                <span className="text-xs tracking-widest uppercase text-[var(--muted)] block">
+                  Discovered {decodedUuids.length === 1 ? 'UUID' : 'UUIDs'}
+                </span>
                 {decodedUuids.map((uuid, index) => (
                   <div 
                     key={index}
-                    className="flex items-center justify-between p-3 bg-neutral-100 border border-neutral-200"
+                    className="flex items-center justify-between p-4 bg-[var(--surface)] border border-[var(--border)] rounded-sm"
                   >
-                    <code className="font-mono text-sm">
+                    <code className="mono text-sm text-[var(--accent)] tracking-wide">
                       {uuid}
                     </code>
                     <button
                       onClick={() => navigator.clipboard.writeText(uuid)}
-                      className="font-mono text-xs text-neutral-500 hover:text-black"
+                      className="text-xs tracking-wider uppercase text-[var(--muted)] hover:text-[var(--foreground)] transition-colors ml-4"
                     >
-                      copy
+                      Copy
                     </button>
                   </div>
                 ))}
@@ -305,7 +320,9 @@ export default function DecodePage() {
 
             {/* Debug info */}
             {debugInfo && !isProcessing && (
-              <p className="font-mono text-xs text-neutral-400 whitespace-pre-line">{debugInfo}</p>
+              <p className="mono text-xs text-[var(--muted)]/70 whitespace-pre-line leading-relaxed">
+                {debugInfo}
+              </p>
             )}
           </div>
         )}

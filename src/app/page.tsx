@@ -1,6 +1,6 @@
 'use client';
 
-import { drawEncodedBorder, generateUuid } from '@/lib/uuid-border';
+import { generateUuid } from '@/lib/uuid-border';
 import Link from 'next/link';
 import { UUIDInput } from '@/components/UUIDInput';
 import { useCallback, useState } from 'react';
@@ -14,30 +14,43 @@ export default function EncoderPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-white text-black">
-      <div className="max-w-2xl mx-auto px-6 py-12">
+    <main className="min-h-screen bg-[var(--background)]">
+      <div className="max-w-2xl mx-auto px-8 py-16">
         {/* Header */}
-        <div className="flex justify-between items-center mb-16">
-          <h1 className="font-mono text-sm tracking-wide">encode</h1>
+        <header className="flex justify-between items-baseline mb-20">
+          <h1 className="text-2xl font-light tracking-wide text-[var(--foreground)]">
+            Encode
+          </h1>
           <Link 
             href="/decode"
-            className="font-mono text-sm text-neutral-500 hover:text-black"
+            className="text-sm tracking-wider text-[var(--muted)] hover:text-[var(--foreground)] transition-colors uppercase"
           >
-            decode →
+            Decode <span className="ml-1">→</span>
           </Link>
-        </div>
+        </header>
+
+        {/* Subtitle */}
+        <p className="text-[var(--muted)] text-lg font-light mb-12 max-w-md leading-relaxed">
+          Hidden data in plain sight. Your UUID is encoded into the subtle variations of the border below.
+        </p>
 
         {/* Input */}
-        <div className="p-6">
+        <div className="mb-8">
           <UUIDInput 
             uuid={uuid}
             onRegenerate={regenerateUuid}
-            placeholder="type here..."
+            placeholder="Type something..."
           />
         </div>
 
-        <div className="p-6">
-          {uuid}
+        {/* UUID Display */}
+        <div className="pt-6 border-t border-[var(--border)]">
+          <span className="text-xs tracking-widest uppercase text-[var(--muted)] block mb-3">
+            Current UUID
+          </span>
+          <code className="mono text-sm text-[var(--accent)] tracking-wide">
+            {uuid}
+          </code>
         </div>
       </div>
     </main>

@@ -1,26 +1,54 @@
 @import "tailwindcss";
 
 :root {
-  --background: #020617;
-  --foreground: #f8fafc;
+  --background: #faf9f7;
+  --foreground: #1a1a1a;
+  --muted: #6b6b6b;
+  --accent: #8b7355;
+  --border: #e5e3df;
+  --surface: #ffffff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-surface: var(--surface);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom selection colors */
+/* Elegant typography defaults */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+/* Monospace for technical elements */
+code, pre, .mono {
+  font-family: var(--font-mono), "SF Mono", Monaco, monospace;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/* Custom selection colors - warm and elegant */
 ::selection {
-  background: rgba(244, 63, 94, 0.3);
+  background: rgba(139, 115, 85, 0.25);
   color: inherit;
 }
 
@@ -29,21 +57,32 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Custom scrollbar for dark theme */
+/* Refined scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.5);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.5);
-  border-radius: 4px;
+  background: rgba(139, 115, 85, 0.3);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.7);
+  background: rgba(139, 115, 85, 0.5);
+}
+
+/* Elegant link transitions */
+a {
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
 }

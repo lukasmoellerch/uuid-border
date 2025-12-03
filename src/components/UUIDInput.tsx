@@ -11,6 +11,7 @@ interface UUIDInputProps {
 }
 
 const BORDER_WIDTH = 1;
+const BORDER_RADIUS = 8;
 
 export function UUIDInput({ 
   uuid,  
@@ -63,8 +64,8 @@ export function UUIDInput({
     // Clear canvas
     ctx.clearRect(0, 0, dimensions.width, dimensions.height);
 
-    // Draw the encoded border with specified width
-    drawEncodedBorder(ctx, dimensions.width, dimensions.height, uuid, BORDER_WIDTH);
+    // Draw the encoded border with specified width and radius
+    drawEncodedBorder(ctx, dimensions.width, dimensions.height, uuid, BORDER_WIDTH, BORDER_RADIUS);
   }, [uuid, dimensions]);
 
 
@@ -76,12 +77,15 @@ export function UUIDInput({
   }, [uuid]);
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`flex items-center gap-3 ${className}`}>
       {/* Input container with encoded border */}
       <div 
         ref={containerRef}
-        className="relative flex-1"
-        style={{ minHeight: `${52 + BORDER_WIDTH * 2}px` }}
+        className="relative flex-1 bg-[var(--surface)]"
+        style={{ 
+          minHeight: `${52 + BORDER_WIDTH * 2}px`,
+          borderRadius: `${BORDER_RADIUS}px`,
+        }}
       >
         {/* Canvas for encoded border */}
         <canvas
@@ -90,8 +94,8 @@ export function UUIDInput({
           style={{
             width: dimensions.width || '100%',
             height: dimensions.height || '100%',
-
             imageRendering: 'pixelated',
+            borderRadius: `${BORDER_RADIUS}px`,
           }}
         />
         
@@ -101,11 +105,15 @@ export function UUIDInput({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder={placeholder}
-          className="w-full h-full px-4 py-3 bg-transparent outline-none text-lg font-mono"
+          className="w-full h-full px-4 py-2 bg-transparent outline-none mono placeholder:text-[var(--muted)]/50 placeholder:font-light placeholder:italic tracking-wide"
           style={{
+            fontSize: '1rem',
             margin: `${BORDER_WIDTH}px`,
             width: `calc(100% - ${BORDER_WIDTH * 2}px)`,
             height: '50px',
+            borderRadius: `${BORDER_RADIUS - BORDER_WIDTH}px`,
+            paddingLeft: `${BORDER_RADIUS + 4}px`,
+            paddingRight: `${BORDER_RADIUS + 4}px`,
           }}
         />
       </div>
@@ -113,16 +121,16 @@ export function UUIDInput({
       {/* Copy button */}
       <button
         onClick={copyUuid}
-        className="p-3 text-neutral-400 hover:text-black transition-colors"
+        className="p-3 text-[var(--muted)] hover:text-[var(--accent)] transition-colors duration-200"
         title={copied ? 'Copied!' : 'Copy UUID'}
       >
         {copied ? (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.25}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         ) : (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.25}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
         )}
       </button>
@@ -130,11 +138,11 @@ export function UUIDInput({
       {/* New UUID button */}
       <button
         onClick={onRegenerate}
-        className="p-3 text-neutral-400 hover:text-black transition-colors"
+        className="p-3 text-[var(--muted)] hover:text-[var(--accent)] transition-colors duration-200"
         title="Generate new UUID"
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.25}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
     </div>

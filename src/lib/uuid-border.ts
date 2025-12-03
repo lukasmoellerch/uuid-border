@@ -155,50 +155,111 @@ export const TOTAL_SEGMENTS = 84;
 /**
  * Draw encoded border on a canvas context
  * Layout: START(6) + INDEX(8) + DATA(64) + END(6) = 84 segments
+ * 
+ * @param borderRadius - Radius for rounded corners (default 0)
+ * @returns Object with offset information for positioning content inside the border
  */
 export function drawEncodedBorder(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
   uuid: string,
-  borderWidth: number = 3
-): void {
+  borderWidth: number = 3,
+  borderRadius: number = 0
+): { offsetX: number; offsetY: number } {
   const colors = uuidToColorSequence(uuid);
-  // 84 color segments total
-  
-  const topWidth = width;
-  const pixelsPerSegment = Math.floor(topWidth / colors.length);
-  
-  // Draw top border with encoded colors
-  let x = 0;
-  for (let colorIdx = 0; colorIdx < colors.length && x < width; colorIdx++) {
-    const color = colors[colorIdx];
-    ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    
-    const segmentWidth = pixelsPerSegment;
-    ctx.fillRect(x, 0, segmentWidth, borderWidth);
-    x += segmentWidth;
-  }
-  
-  // Fill remaining top border with last color if needed
-  if (x < width) {
-    const lastColor = colors[colors.length - 1];
-    ctx.fillStyle = `rgb(${lastColor.r}, ${lastColor.g}, ${lastColor.b})`;
-    ctx.fillRect(x, 0, width - x, borderWidth);
-  }
-  
-  // Draw other borders with a neutral gray
   const neutralGray = 'rgb(133, 133, 133)';
-  ctx.fillStyle = neutralGray;
   
-  // Right border
-  ctx.fillRect(width - borderWidth, borderWidth, borderWidth, height - borderWidth * 2);
+  // The offset needed for content to clear the rounded corners
+  const offset = borderRadius > 0 ? borderRadius : 0;
   
-  // Bottom border
-  ctx.fillRect(0, height - borderWidth, width, borderWidth);
+  if (borderRadius > 0) {
+    // Draw rounded border frame
+    
+    // First, draw the full rounded rectangle outline in gray
+    ctx.fillStyle = neutralGray;
+    
+    // Draw outer rounded rectangle
+    ctx.beginPath();
+    ctx.roundRect(0, 0, width, height, borderRadius);
+    ctx.fill();
+    
+    // Cut out inner area (creating the border frame)
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    const innerRadius = Math.max(0, borderRadius - borderWidth);
+    ctx.roundRect(
+      borderWidth,
+      borderWidth,
+      width - borderWidth * 2,
+      height - borderWidth * 2,
+      innerRadius
+    );
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    
+    // Now draw encoded colors on the straight portion of the top border
+    // The straight portion starts after the corner radius and ends before the other corner
+    const straightStartX = borderRadius;
+    const straightEndX = width - borderRadius;
+    const straightWidth = straightEndX - straightStartX;
+    
+    if (straightWidth > 0) {
+      const pixelsPerSegment = Math.floor(straightWidth / colors.length);
+      
+      let x = straightStartX;
+      for (let colorIdx = 0; colorIdx < colors.length && x < straightEndX; colorIdx++) {
+        const color = colors[colorIdx];
+        ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+        
+        const segmentWidth = pixelsPerSegment;
+        ctx.fillRect(x, 0, segmentWidth, borderWidth);
+        x += segmentWidth;
+      }
+      
+      // Fill remaining with last color
+      if (x < straightEndX) {
+        const lastColor = colors[colors.length - 1];
+        ctx.fillStyle = `rgb(${lastColor.r}, ${lastColor.g}, ${lastColor.b})`;
+        ctx.fillRect(x, 0, straightEndX - x, borderWidth);
+      }
+    }
+  } else {
+    // Original rectangular border implementation
+    const pixelsPerSegment = Math.floor(width / colors.length);
+    
+    // Draw top border with encoded colors
+    let x = 0;
+    for (let colorIdx = 0; colorIdx < colors.length && x < width; colorIdx++) {
+      const color = colors[colorIdx];
+      ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+      
+      const segmentWidth = pixelsPerSegment;
+      ctx.fillRect(x, 0, segmentWidth, borderWidth);
+      x += segmentWidth;
+    }
+    
+    // Fill remaining top border with last color if needed
+    if (x < width) {
+      const lastColor = colors[colors.length - 1];
+      ctx.fillStyle = `rgb(${lastColor.r}, ${lastColor.g}, ${lastColor.b})`;
+      ctx.fillRect(x, 0, width - x, borderWidth);
+    }
+    
+    // Draw other borders with neutral gray
+    ctx.fillStyle = neutralGray;
+    
+    // Right border
+    ctx.fillRect(width - borderWidth, borderWidth, borderWidth, height - borderWidth * 2);
+    
+    // Bottom border
+    ctx.fillRect(0, height - borderWidth, width, borderWidth);
+    
+    // Left border
+    ctx.fillRect(0, borderWidth, borderWidth, height - borderWidth * 2);
+  }
   
-  // Left border
-  ctx.fillRect(0, borderWidth, borderWidth, height - borderWidth * 2);
+  return { offsetX: offset, offsetY: offset };
 }
 
 /**
