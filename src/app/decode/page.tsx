@@ -10,6 +10,7 @@ export default function DecodePage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -77,7 +78,6 @@ export default function DecodePage() {
       };
     };
 
-    // Check if a color looks like a border color (grayish)
     const isBorderColor = (c: RGB): boolean => {
       const avg = (c.r + c.g + c.b) / 3;
       return avg > 100 && avg < 180 && Math.abs(c.g - c.b) < 30;
@@ -87,7 +87,6 @@ export default function DecodePage() {
     let candidatesFound = 0;
 
     for (let y = 0; y < height; y++) {
-      // Skip if we already found something on nearby rows
       let skipRow = false;
       for (let dy = -3; dy <= 3; dy++) {
         if (processedRows.has(y + dy)) {
@@ -100,17 +99,14 @@ export default function DecodePage() {
       for (let x = 0; x < width - 100; x++) {
         const pixel = getPixel(x, y);
         
-        // Look for border-like pixels
         if (!isBorderColor(pixel)) continue;
 
-        // Find the extent of this border region
         let borderEnd = x;
         while (borderEnd < width && isBorderColor(getPixel(borderEnd, y))) {
           borderEnd++;
         }
         const borderWidth = borderEnd - x;
         
-        // Need enough width for all segments (at least 84 pixels)
         if (borderWidth < TOTAL_SEGMENTS) {
           x = borderEnd;
           continue;
@@ -118,8 +114,6 @@ export default function DecodePage() {
 
         candidatesFound++;
 
-        // Try different starting positions and widths
-        // The detected border region may include padding
         const possibleEncodedWidths = [
           borderWidth,
           Math.floor(borderWidth * 0.95),
@@ -215,43 +209,81 @@ export default function DecodePage() {
     }
   }, [processImage]);
 
+  const copyUuid = (uuid: string, index: number) => {
+    navigator.clipboard.writeText(uuid);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const clearImage = () => {
+    setImage(null);
+    setDecodedUuids([]);
+    setDebugInfo('');
+  };
+
   return (
     <main 
-      className="min-h-screen bg-[var(--background)]"
+      className="min-h-screen relative noise"
       onPaste={handlePaste}
       tabIndex={0}
     >
-      <div className="max-w-2xl mx-auto px-8 py-16">
+      {/* Decorative elements */}
+      <div className="absolute top-40 right-20 w-80 h-80 bg-[var(--accent-secondary)]/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-40 left-20 w-72 h-72 bg-[var(--accent)]/10 rounded-full blur-[120px] pointer-events-none" />
+      
+      <div className="max-w-2xl mx-auto px-6 py-20 relative">
         {/* Header */}
-        <header className="flex justify-between items-baseline mb-20">
+        <header className="flex justify-between items-center mb-16 fade-in">
           <Link 
             href="/" 
-            className="text-sm tracking-wider text-[var(--muted)] hover:text-[var(--foreground)] transition-colors uppercase"
+            className="
+              group flex items-center gap-2 px-4 py-2 rounded-full
+              text-sm tracking-wider text-[var(--muted)] 
+              hover:text-[var(--foreground)] 
+              bg-[var(--surface)] hover:bg-[var(--surface-elevated)]
+              border border-[var(--border)] hover:border-[var(--accent)]/30
+              transition-all duration-300
+            "
           >
-            <span className="mr-1">←</span> Encode
+            <svg className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span>Encode</span>
           </Link>
-          <h1 className="text-2xl font-light tracking-wide text-[var(--foreground)]">
-            Decode
-          </h1>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--accent-secondary)] to-[var(--accent)] flex items-center justify-center shadow-lg shadow-[var(--accent-secondary)]/20">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <span className="text-xl font-light tracking-wide text-[var(--foreground)]">
+              Decode
+            </span>
+          </div>
         </header>
 
-        {/* Subtitle */}
-        <p className="text-[var(--muted)] text-lg font-light mb-12 max-w-md leading-relaxed">
-          Extract hidden UUIDs from screenshots. Drop an image or paste from your clipboard.
-        </p>
+        {/* Hero section */}
+        <div className="mb-12 fade-in-delay-1">
+          <h1 className="text-5xl md:text-6xl font-light tracking-tight mb-6 leading-[1.1]">
+            <span className="text-[var(--foreground)]">Extract</span>
+            <br />
+            <span className="text-gradient">hidden UUIDs</span>
+          </h1>
+          <p className="text-[var(--muted)] text-lg font-light max-w-md leading-relaxed">
+            Drop a screenshot or paste from clipboard to discover embedded UUIDs hidden in the image.
+          </p>
+        </div>
 
         {/* Drop Zone */}
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => !image && fileInputRef.current?.click()}
           className={`
-            cursor-pointer border transition-all duration-300 rounded-sm
-            ${isDragging 
-              ? 'border-[var(--accent)] bg-[var(--surface)] shadow-sm' 
-              : 'border-[var(--border)] hover:border-[var(--accent)]/50 hover:bg-[var(--surface)]/50'
-            }
+            glass-card overflow-hidden transition-all duration-300 fade-in-delay-2
+            ${!image ? 'cursor-pointer' : ''}
+            ${isDragging ? 'glow border-[var(--accent)]/50' : 'glow-hover'}
           `}
         >
           <input
@@ -262,70 +294,149 @@ export default function DecodePage() {
             className="hidden"
           />
           
-          <div className="py-20 px-8 text-center">
-            <p className="text-[var(--muted)] text-base font-light italic">
-              {isDragging ? 'Release to decode...' : 'Drop image or paste from clipboard'}
-            </p>
-          </div>
+          {!image ? (
+            <div className="py-24 px-8 text-center">
+              <div className={`
+                w-20 h-20 mx-auto mb-6 rounded-2xl 
+                bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent-secondary)]/20 
+                flex items-center justify-center
+                transition-transform duration-300
+                ${isDragging ? 'scale-110' : ''}
+              `}>
+                <svg className="w-10 h-10 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-[var(--foreground)] text-lg font-light mb-2">
+                {isDragging ? 'Release to decode...' : 'Drop image here'}
+              </p>
+              <p className="text-[var(--muted)] text-sm">
+                or click to browse • paste from clipboard
+              </p>
+              <div className="flex items-center justify-center gap-3 mt-6 text-xs text-[var(--muted)]/60">
+                <span className="px-2 py-1 rounded bg-[var(--surface-elevated)] border border-[var(--border)]">⌘V</span>
+                <span>to paste</span>
+              </div>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="p-4">
+                <img 
+                  src={image} 
+                  alt="Screenshot" 
+                  className="max-w-full h-auto rounded-lg"
+                />
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearImage();
+                }}
+                className="absolute top-6 right-6 p-2 rounded-lg bg-black/50 backdrop-blur-sm text-white/80 hover:text-white hover:bg-black/70 transition-all"
+                title="Clear image"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Hidden canvas */}
         <canvas ref={canvasRef} className="hidden" />
 
         {/* Results */}
-        {(image || isProcessing || decodedUuids.length > 0 || debugInfo) && (
-          <div className="mt-12 space-y-8">
-            {/* Preview */}
-            {image && (
-              <div className="border border-[var(--border)] p-3 rounded-sm bg-[var(--surface)]">
-                <img 
-                  src={image} 
-                  alt="Screenshot" 
-                  className="max-w-full h-auto"
-                />
-              </div>
-            )}
-
+        {(isProcessing || decodedUuids.length > 0 || debugInfo) && (
+          <div className="mt-8 space-y-6 fade-in">
             {/* Processing */}
             {isProcessing && (
-              <p className="text-[var(--muted)] text-base font-light italic animate-pulse">
-                Scanning for hidden data...
-              </p>
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent-secondary)]/20 flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                  <div>
+                    <p className="text-[var(--foreground)] font-light">Scanning image...</p>
+                    <p className="text-[var(--muted)] text-sm">Looking for hidden data</p>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Decoded UUIDs */}
             {decodedUuids.length > 0 && (
               <div className="space-y-4">
-                <span className="text-xs tracking-widest uppercase text-[var(--muted)] block">
-                  Discovered {decodedUuids.length === 1 ? 'UUID' : 'UUIDs'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-xs tracking-widest uppercase text-[var(--muted)]">
+                    Discovered {decodedUuids.length} {decodedUuids.length === 1 ? 'UUID' : 'UUIDs'}
+                  </span>
+                </div>
                 {decodedUuids.map((uuid, index) => (
                   <div 
                     key={index}
-                    className="flex items-center justify-between p-4 bg-[var(--surface)] border border-[var(--border)] rounded-sm"
+                    className="glass-card p-5 glow-hover group"
                   >
-                    <code className="mono text-sm text-[var(--accent)] tracking-wide">
-                      {uuid}
-                    </code>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(uuid)}
-                      className="text-xs tracking-wider uppercase text-[var(--muted)] hover:text-[var(--foreground)] transition-colors ml-4"
-                    >
-                      Copy
-                    </button>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-400/20 to-emerald-400/20 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <code className="mono text-sm text-[var(--accent)] tracking-wide break-all">
+                          {uuid}
+                        </code>
+                      </div>
+                      <button
+                        onClick={() => copyUuid(uuid, index)}
+                        className="btn-ghost flex-shrink-0"
+                      >
+                        {copiedIndex === index ? (
+                          <span className="text-green-400 text-xs tracking-wider uppercase">Copied!</span>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Debug info */}
-            {debugInfo && !isProcessing && (
-              <p className="mono text-xs text-[var(--muted)]/70 whitespace-pre-line leading-relaxed">
-                {debugInfo}
-              </p>
+            {/* No results */}
+            {!isProcessing && decodedUuids.length === 0 && debugInfo && (
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400/20 to-amber-400/20 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[var(--foreground)] font-light mb-1">No UUIDs found</p>
+                    <p className="mono text-xs text-[var(--muted)]/70 whitespace-pre-line leading-relaxed">
+                      {debugInfo}
+                    </p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}
+
+        {/* Footer hint */}
+        <div className="mt-12 text-center fade-in-delay-3">
+          <p className="text-[var(--muted)]/60 text-sm font-light">
+            Need to encode a new UUID?{' '}
+            <Link href="/" className="text-[var(--accent)] hover:text-[var(--accent-secondary)] transition-colors">
+              Go to Encode
+            </Link>
+          </p>
+        </div>
       </div>
     </main>
   );
