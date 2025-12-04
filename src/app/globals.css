@@ -7,6 +7,17 @@
   --accent: #8b7355;
   --border: #e5e3df;
   --surface: #ffffff;
+  --glow: rgba(139, 115, 85, 0.15);
+}
+
+.dark {
+  --background: #0f0f0f;
+  --foreground: #e8e6e3;
+  --muted: #8a8a8a;
+  --accent: #c9a87c;
+  --border: #2a2a2a;
+  --surface: #1a1a1a;
+  --glow: rgba(201, 168, 124, 0.1);
 }
 
 @theme inline {
@@ -29,6 +40,7 @@ body {
   letter-spacing: 0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Elegant typography defaults */
@@ -50,6 +62,10 @@ code, pre, .mono {
 ::selection {
   background: rgba(139, 115, 85, 0.25);
   color: inherit;
+}
+
+.dark ::selection {
+  background: rgba(201, 168, 124, 0.3);
 }
 
 /* Smooth scrolling */
@@ -85,4 +101,154 @@ a {
 :focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--glow);
+  }
+  50% {
+    box-shadow: 0 0 20px 5px var(--glow);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes colorCycle {
+  0% { background-color: rgb(123, 123, 123); }
+  12.5% { background-color: rgb(143, 123, 123); }
+  25% { background-color: rgb(123, 143, 123); }
+  37.5% { background-color: rgb(143, 143, 123); }
+  50% { background-color: rgb(123, 123, 143); }
+  62.5% { background-color: rgb(143, 123, 143); }
+  75% { background-color: rgb(123, 143, 143); }
+  87.5% { background-color: rgb(143, 143, 143); }
+  100% { background-color: rgb(123, 123, 123); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--border) 0%,
+    var(--accent) 50%,
+    var(--border) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+.animate-color-cycle {
+  animation: colorCycle 4s ease-in-out infinite;
+}
+
+/* Stagger children animations */
+.stagger-children > * {
+  animation: fadeIn 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 400ms; }
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.dark .glass {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--foreground) 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--glow);
+}
+
+/* Button styles */
+.btn-primary {
+  background: var(--accent);
+  color: var(--background);
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--foreground);
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
