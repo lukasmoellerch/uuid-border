@@ -1,0 +1,14 @@
+AI Notes:
+
+next.config.ts: +5[0]
+package.json: +9[1],+23[1]
+src/app/globals.css: +6[2],+13[2],+19-20[2],+26[2]
+src/app/page.tsx: +4[3],+14[4],+18[4],+35-36[4],+50[4],+61-63[4],+64[3],+65[4]
+
+Conversations:
+
+[0]: aa251b10-27a6-49b2-9d40-21f942564a0a; aa251b10; unknown;
+[1]: 7b478ddd-2fc3-4804-8c9a-c03847a1bc24; 7b478ddd; unknown;
+[2]: 3a8db0ce-34db-4118-bd77-9f5264ecb6be; 3a8db0ce; unknown;
+[3]: 2a1b1b37-1906-4fcd-b369-07b74c749000; 2a1b1b37; unknown;
+[4]: 0ef3265d-744f-4809-90a4-b7574b003232; 0ef3265d; unknown;
