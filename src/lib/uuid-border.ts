@@ -829,6 +829,82 @@ export function drawEncodedBorder(
 }
 
 /**
+ * Recalibrate the start position AND segment width by finding the index sequence [0,1,2,3,4,5,6,7].
+ * When zoom causes fractional pixel offsets, the initial marker detection may be
+ * off by up to a full segment, and the segment width may be fractionally different.
+ * The index sequence is a known pattern we can use to precisely determine segment boundaries.
+ * 
+ * Returns the adjusted startX and refined segment width, or null if calibration fails.
+ */
+function recalibrateStartAndWidth(
+  getPixel: (x: number) => RGB,
+  approxStartX: number,
+  approxPixelsPerSegment: number
+): { startX: number; pixelsPerSegment: number } | null {
+  const MID = 133;
+  
+  // Search range: up to 1.5 segments in either direction for offset
+  // Also try segment widths from 0.85x to 1.15x of detected width
+  const offsetRange = Math.ceil(approxPixelsPerSegment * 1.5);
+  const minWidth = Math.floor(approxPixelsPerSegment * 0.85);
+  const maxWidth = Math.ceil(approxPixelsPerSegment * 1.15);
+  
+  let bestOffset = 0;
+  let bestWidth = approxPixelsPerSegment;
+  let bestScore = -1;
+  
+  // Try different segment widths
+  for (let width = minWidth; width <= maxWidth; width++) {
+    // For each width, try different offsets
+    for (let offset = -offsetRange; offset <= offsetRange; offset++) {
+      const candidateStart = approxStartX + offset;
+      let score = 0;
+      
+      // Read index colors with this offset and width
+      for (let i = 0; i < 8; i++) {
+        const segmentCenter = candidateStart + (6 + i) * width + Math.floor(width / 2);
+        const pixel = getPixel(segmentCenter);
+        
+        const rBit = pixel.r > MID ? 1 : 0;
+        const gBit = pixel.g > MID ? 1 : 0;
+        const bBit = pixel.b > MID ? 1 : 0;
+        const detected = rBit | (gBit << 1) | (bBit << 2);
+        
+        if (detected === i) {
+          score += 1;
+        } else if (Math.abs(detected - i) === 1) {
+          score += 0.5;
+        }
+      }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestOffset = offset;
+        bestWidth = width;
+      }
+    }
+  }
+  
+  // Require at least 6 out of 8 to match
+  if (bestScore >= 6) {
+    return {
+      startX: approxStartX + bestOffset,
+      pixelsPerSegment: bestWidth,
+    };
+  }
+  
+  // Fallback: if we got at least 5 matches, still use it
+  if (bestScore >= 5) {
+    return {
+      startX: approxStartX + bestOffset,
+      pixelsPerSegment: bestWidth,
+    };
+  }
+  
+  return null;
+}
+
+/**
  * Decode a UUID from a row of pixels with Reed-Solomon error correction
  * Uses adaptive calibration for JPEG robustness
  * @param getPixel - Function to get pixel color at x position
@@ -848,10 +924,15 @@ export function decodeFromPixelRow(
   
   if (pixelsPerSegment < 1) return null;
   
+  // Try to recalibrate start position using the index sequence
+  // This helps when zoom causes sub-pixel misalignment
+  const calibratedStartX = recalibrateStartPosition(getPixel, startX, pixelsPerSegment);
+  const effectiveStartX = calibratedStartX ?? startX;
+  
   // Read 8 index colors (positions 6-13)
   const indexColors: RGB[] = [];
   for (let i = 0; i < 8; i++) {
-    const segmentCenterX = startX + (6 + i) * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
+    const segmentCenterX = effectiveStartX + (6 + i) * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
     indexColors.push(getPixel(segmentCenterX));
   }
   
@@ -874,7 +955,7 @@ export function decodeFromPixelRow(
   // Verify start marker pattern: [1,1,1,0,1,2]
   const startPattern: number[] = [];
   for (let i = 0; i < 6; i++) {
-    const segmentCenterX = startX + i * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
+    const segmentCenterX = effectiveStartX + i * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
     startPattern.push(decodeIndex(segmentCenterX));
   }
   
@@ -899,7 +980,7 @@ export function decodeFromPixelRow(
     // Read 4 segments: highHigh, highLow, lowHigh, lowLow
     const segments: number[] = [];
     for (let s = 0; s < 4; s++) {
-      const segmentCenterX = startX + (baseSegment + s) * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
+      const segmentCenterX = effectiveStartX + (baseSegment + s) * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
       segments.push(decodeIndex(segmentCenterX));
     }
     
@@ -913,7 +994,7 @@ export function decodeFromPixelRow(
   const endMarkerStart = dataStartSegment + totalBytes * 4;
   const endPattern: number[] = [];
   for (let i = 0; i < 6; i++) {
-    const segmentCenterX = startX + (endMarkerStart + i) * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
+    const segmentCenterX = effectiveStartX + (endMarkerStart + i) * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
     endPattern.push(decodeIndex(segmentCenterX));
   }
   

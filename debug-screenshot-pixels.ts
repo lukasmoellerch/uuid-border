@@ -150,3 +150,10 @@ try {
 } catch (e) {
   console.log('Reference screenshot not available');
 }
+
+// Analyze the real Chrome 90% zoom screenshot
+try {
+  analyzeImage('../90_zoom.png', 'REAL CHROME: 90% zoom screenshot from user');
+} catch (e) {
+  console.log('Real Chrome screenshot not available:', e);
+}
