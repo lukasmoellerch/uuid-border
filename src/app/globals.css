@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf9f7;
+  --background: #e8f5e9;
   --foreground: #1a1a1a;
-  --muted: #6b6b6b;
-  --accent: #8b7355;
-  --border: #e5e3df;
-  --surface: #ffffff;
-  --glow: rgba(139, 115, 85, 0.15);
+  --muted: #5a6b5a;
+  --accent: #2e7d32;
+  --border: #c8e6c9;
+  --surface: #f1f8f1;
+  --glow: rgba(46, 125, 50, 0.15);
 }
 
 .dark {
-  --background: #0f0f0f;
-  --foreground: #e8e6e3;
-  --muted: #8a8a8a;
-  --accent: #c9a87c;
-  --border: #2a2a2a;
-  --surface: #1a1a1a;
-  --glow: rgba(201, 168, 124, 0.1);
+  --background: #0a1f0a;
+  --foreground: #e8f5e9;
+  --muted: #81c784;
+  --accent: #66bb6a;
+  --border: #1b3d1b;
+  --surface: #0f2d0f;
+  --glow: rgba(102, 187, 106, 0.1);
 }
 
 @theme inline {
@@ -58,14 +58,14 @@ code, pre, .mono {
   letter-spacing: -0.02em;
 }
 
-/* Custom selection colors - warm and elegant */
+/* Custom selection colors - green theme */
 ::selection {
-  background: rgba(139, 115, 85, 0.25);
+  background: rgba(46, 125, 50, 0.25);
   color: inherit;
 }
 
 .dark ::selection {
-  background: rgba(201, 168, 124, 0.3);
+  background: rgba(102, 187, 106, 0.3);
 }
 
 /* Smooth scrolling */
@@ -84,12 +84,12 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 115, 85, 0.3);
+  background: rgba(46, 125, 50, 0.3);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 115, 85, 0.5);
+  background: rgba(46, 125, 50, 0.5);
 }
 
 /* Elegant link transitions */
