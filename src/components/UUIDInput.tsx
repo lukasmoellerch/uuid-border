@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { drawEncodedBorder, generateUuid } from '@/lib/uuid-border';
+import { drawEncodedBorder } from '@/lib/uuid-border';
 
 interface UUIDInputProps {
   uuid: string;

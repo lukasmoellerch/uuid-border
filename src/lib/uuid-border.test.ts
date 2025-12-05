@@ -11,7 +11,10 @@ import {
   findClosestIndexColor,
   generateUuid,
   decodeFromPixelRow,
+  calculateTotalSegments,
+  DEFAULT_RS_CONFIG,
 } from './uuid-border';
+import { calculateParityBytes } from './reed-solomon';
 
 // Helper to simulate canvas rendering and pixel reading
 function simulateCanvasEncode(uuid: string, width: number): RGB[] {
@@ -136,9 +139,12 @@ describe('uuid-border encoding', () => {
   describe('uuidToColorSequence', () => {
     const testUuid = '12345678-1234-4234-8234-123456789abc';
 
-    it('should generate 84 colors (6 + 8 + 64 + 6)', () => {
+    it('should generate correct number of colors with RS encoding', () => {
       const colors = uuidToColorSequence(testUuid);
-      expect(colors.length).toBe(84);
+      // With default 2x redundancy: 6 + 8 + 128 + 6 = 148 segments
+      const expectedSegments = calculateTotalSegments(DEFAULT_RS_CONFIG);
+      expect(colors.length).toBe(expectedSegments);
+      expect(colors.length).toBe(TOTAL_SEGMENTS);
     });
 
     it('should start with MARKER_START_PATTERN', () => {
@@ -158,9 +164,13 @@ describe('uuid-border encoding', () => {
 
     it('should end with MARKER_END_PATTERN', () => {
       const colors = uuidToColorSequence(testUuid);
+      // End marker starts after: start(6) + index(8) + data(4 * totalBytes)
+      const nsym = calculateParityBytes(16, DEFAULT_RS_CONFIG.redundancyFactor);
+      const totalBytes = 16 + nsym;
+      const endMarkerStart = 6 + 8 + totalBytes * 4;
       for (let i = 0; i < 6; i++) {
         const expectedIdx = MARKER_END_PATTERN[i];
-        expect(colors[78 + i]).toEqual(INDEX_COLORS[expectedIdx]);
+        expect(colors[endMarkerStart + i]).toEqual(INDEX_COLORS[expectedIdx]);
       }
     });
   });
@@ -186,31 +196,19 @@ describe('uuid-border encoding', () => {
   });
 
   describe('full encode/decode roundtrip', () => {
-    it('should decode a UUID correctly from color sequence', () => {
+    it('should decode a UUID correctly using decodeFromPixelRow', () => {
       const originalUuid = '12345678-1234-4234-8234-123456789abc';
       const colors = uuidToColorSequence(originalUuid);
 
-      // Extract index colors from sequence (positions 6-13)
-      const indexColors = colors.slice(6, 14);
+      // Use decodeFromPixelRow to decode (simulating perfect pixel access)
+      const result = decodeFromPixelRow(
+        (x) => colors[Math.floor(x / 10)], // 10 pixels per segment
+        0,
+        colors.length * 10
+      );
 
-      // Extract data colors (positions 14-77, 64 colors = 32 hex digits * 2)
-      const dataColors = colors.slice(14, 78);
-
-      // Decode hex digits
-      const hexDigits: string[] = [];
-      for (let i = 0; i < 32; i++) {
-        const highColor = dataColors[i * 2];
-        const lowColor = dataColors[i * 2 + 1];
-        const highIdx = findClosestIndexColor(highColor, indexColors);
-        const lowIdx = findClosestIndexColor(lowColor, indexColors);
-        const digit = indicesToHexDigit(highIdx, lowIdx);
-        hexDigits.push(digit.toString(16));
-      }
-
-      const hexString = hexDigits.join('');
-      const decodedUuid = `${hexString.slice(0, 8)}-${hexString.slice(8, 12)}-${hexString.slice(12, 16)}-${hexString.slice(16, 20)}-${hexString.slice(20)}`;
-
-      expect(decodedUuid).toBe(originalUuid);
+      expect(result).not.toBeNull();
+      expect(result!.uuid).toBe(originalUuid);
     });
 
     it('should decode multiple random UUIDs correctly', () => {
@@ -218,34 +216,23 @@ describe('uuid-border encoding', () => {
         const originalUuid = generateUuid();
         const colors = uuidToColorSequence(originalUuid);
 
-        // Extract index colors from sequence (positions 6-13)
-        const indexColors = colors.slice(6, 14);
+        // Use decodeFromPixelRow to decode
+        const result = decodeFromPixelRow(
+          (x) => colors[Math.floor(x / 10)],
+          0,
+          colors.length * 10
+        );
 
-        // Extract data colors (positions 14-77)
-        const dataColors = colors.slice(14, 78);
-
-        // Decode hex digits
-        const hexDigits: string[] = [];
-        for (let i = 0; i < 32; i++) {
-          const highColor = dataColors[i * 2];
-          const lowColor = dataColors[i * 2 + 1];
-          const highIdx = findClosestIndexColor(highColor, indexColors);
-          const lowIdx = findClosestIndexColor(lowColor, indexColors);
-          const digit = indicesToHexDigit(highIdx, lowIdx);
-          hexDigits.push(digit.toString(16));
-        }
-
-        const hexString = hexDigits.join('');
-        const decodedUuid = `${hexString.slice(0, 8)}-${hexString.slice(8, 12)}-${hexString.slice(12, 16)}-${hexString.slice(16, 20)}-${hexString.slice(20)}`;
-
-        expect(decodedUuid).toBe(originalUuid);
+        expect(result).not.toBeNull();
+        expect(result!.uuid).toBe(originalUuid);
       }
     });
   });
 
   describe('canvas simulation encode/decode', () => {
     it('should decode from simulated canvas pixels at various widths', () => {
-      const widths = [840, 1000, 500, 672, 420];
+      // Widths that work well with 148 segments
+      const widths = [1480, 1000, 740, 592, 500];
       
       for (const width of widths) {
         const originalUuid = generateUuid();
@@ -258,8 +245,8 @@ describe('uuid-border encoding', () => {
     });
 
     it('should handle exact segment boundaries', () => {
-      // 84 segments * 10 = 840 pixels exactly
-      const width = 840;
+      // 148 segments * 10 = 1480 pixels exactly
+      const width = TOTAL_SEGMENTS * 10;
       const originalUuid = '12345678-1234-4234-8234-123456789abc';
       const pixels = simulateCanvasEncode(originalUuid, width);
       const result = decodeFromPixelRow(x => pixels[x], 0, width);
@@ -270,7 +257,7 @@ describe('uuid-border encoding', () => {
     });
 
     it('should decode with padding before the encoded area', () => {
-      const encodedWidth = 840;
+      const encodedWidth = TOTAL_SEGMENTS * 10;
       const padding = 50;
       const originalUuid = generateUuid();
       
@@ -290,7 +277,7 @@ describe('uuid-border encoding', () => {
     });
 
     it('should handle small compression artifacts', () => {
-      const width = 840;
+      const width = TOTAL_SEGMENTS * 10;
       const originalUuid = generateUuid();
       const pixels = simulateCanvasEncode(originalUuid, width);
       
@@ -305,6 +292,79 @@ describe('uuid-border encoding', () => {
       
       expect(result).not.toBeNull();
       expect(result!.uuid).toBe(originalUuid);
+    });
+  });
+
+  describe('Reed-Solomon error correction', () => {
+    it('should recover from corrupted bytes using RS error correction', () => {
+      const width = TOTAL_SEGMENTS * 10;
+      const originalUuid = generateUuid();
+      const pixels = simulateCanvasEncode(originalUuid, width);
+      const pixelsPerSegment = Math.floor(width / TOTAL_SEGMENTS);
+      
+      // Corrupt multiple data segments (simulating byte corruption)
+      // Data starts at segment 14 and each byte uses 4 segments
+      // Corrupt 4 bytes (16 segments) = up to 8 errors with 2x redundancy
+      const corruptedPixels = [...pixels];
+      const corruptColor: RGB = { r: 255, g: 0, b: 0 }; // Clearly wrong color
+      
+      // Corrupt segments 14-17 (byte 0), 30-33 (byte 4), 50-53 (byte 9), 70-73 (byte 14)
+      const segmentsToCorrupt = [14, 15, 30, 31, 50, 51, 70, 71]; // 8 segment errors
+      
+      for (const seg of segmentsToCorrupt) {
+        const startIdx = seg * pixelsPerSegment;
+        for (let i = 0; i < pixelsPerSegment; i++) {
+          corruptedPixels[startIdx + i] = { ...corruptColor };
+        }
+      }
+      
+      const result = decodeFromPixelRow(x => corruptedPixels[x], 0, width);
+      
+      expect(result).not.toBeNull();
+      expect(result!.uuid).toBe(originalUuid);
+      expect(result!.errorsCorrected).toBe(true);
+    });
+
+    it('should report errorsCorrected=false when no errors present', () => {
+      const width = TOTAL_SEGMENTS * 10;
+      const originalUuid = generateUuid();
+      const pixels = simulateCanvasEncode(originalUuid, width);
+      
+      const result = decodeFromPixelRow(x => pixels[x], 0, width);
+      
+      expect(result).not.toBeNull();
+      expect(result!.uuid).toBe(originalUuid);
+      expect(result!.errorsCorrected).toBe(false);
+    });
+
+    it('should fail gracefully when too many errors', () => {
+      const width = TOTAL_SEGMENTS * 10;
+      const originalUuid = generateUuid();
+      const pixels = simulateCanvasEncode(originalUuid, width);
+      const pixelsPerSegment = Math.floor(width / TOTAL_SEGMENTS);
+      
+      // Corrupt too many segments - more than RS can handle
+      // With 16 parity bytes, can correct up to 8 byte errors
+      // Corrupt 20 bytes worth (80 segments) to exceed capacity
+      const corruptedPixels = [...pixels];
+      const corruptColor: RGB = { r: 0, g: 255, b: 255 };
+      
+      // Corrupt 20 consecutive bytes starting at data position
+      for (let byte = 0; byte < 20; byte++) {
+        const baseSegment = 14 + byte * 4;
+        for (let s = 0; s < 4; s++) {
+          const seg = baseSegment + s;
+          const startIdx = seg * pixelsPerSegment;
+          for (let i = 0; i < pixelsPerSegment; i++) {
+            corruptedPixels[startIdx + i] = { ...corruptColor };
+          }
+        }
+      }
+      
+      const result = decodeFromPixelRow(x => corruptedPixels[x], 0, width);
+      
+      // Should return null when too many errors
+      expect(result).toBeNull();
     });
   });
 });
