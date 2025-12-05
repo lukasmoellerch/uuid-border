@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #e8f5e9;
+  --background: #ffebee;
   --foreground: #1a1a1a;
-  --muted: #5a6b5a;
-  --accent: #2e7d32;
-  --border: #c8e6c9;
-  --surface: #f1f8f1;
-  --glow: rgba(46, 125, 50, 0.15);
+  --muted: #6b5a5a;
+  --accent: #c62828;
+  --border: #ffcdd2;
+  --surface: #fff5f5;
+  --glow: rgba(198, 40, 40, 0.15);
 }
 
 .dark {
-  --background: #0a1f0a;
-  --foreground: #e8f5e9;
-  --muted: #81c784;
-  --accent: #66bb6a;
-  --border: #1b3d1b;
-  --surface: #0f2d0f;
-  --glow: rgba(102, 187, 106, 0.1);
+  --background: #1f0a0a;
+  --foreground: #ffebee;
+  --muted: #e57373;
+  --accent: #ef5350;
+  --border: #3d1b1b;
+  --surface: #2d0f0f;
+  --glow: rgba(239, 83, 80, 0.1);
 }
 
 @theme inline {
@@ -58,14 +58,14 @@ code, pre, .mono {
   letter-spacing: -0.02em;
 }
 
-/* Custom selection colors - green theme */
+/* Custom selection colors - red theme */
 ::selection {
-  background: rgba(46, 125, 50, 0.25);
+  background: rgba(198, 40, 40, 0.25);
   color: inherit;
 }
 
 .dark ::selection {
-  background: rgba(102, 187, 106, 0.3);
+  background: rgba(239, 83, 80, 0.3);
 }
 
 /* Smooth scrolling */
@@ -84,12 +84,12 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(46, 125, 50, 0.3);
+  background: rgba(198, 40, 40, 0.3);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(46, 125, 50, 0.5);
+  background: rgba(198, 40, 40, 0.5);
 }
 
 /* Elegant link transitions */
