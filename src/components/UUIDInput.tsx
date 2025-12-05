@@ -13,6 +13,32 @@ interface UUIDInputProps {
 const BORDER_WIDTH = 1;
 const BORDER_RADIUS = 8;
 
+// Minimum width needed for reliable encoding (148 segments * 3 pixels minimum)
+const MIN_ENCODING_WIDTH = 450;
+
+/**
+ * Get the cumulative CSS zoom factor applied to an element
+ * This walks up the DOM tree to find any zoom styles
+ */
+function getEffectiveZoom(element: HTMLElement | null): number {
+  let zoom = 1;
+  let el = element;
+  
+  while (el && el !== document.documentElement) {
+    const style = window.getComputedStyle(el);
+    const elementZoom = parseFloat(style.zoom) || 1;
+    zoom *= elementZoom;
+    el = el.parentElement;
+  }
+  
+  // Also check body and html
+  const bodyZoom = parseFloat(window.getComputedStyle(document.body).zoom) || 1;
+  const htmlZoom = parseFloat(window.getComputedStyle(document.documentElement).zoom) || 1;
+  zoom *= bodyZoom * htmlZoom;
+  
+  return zoom;
+}
+
 export function UUIDInput({ 
   uuid,  
   onRegenerate,
@@ -22,18 +48,30 @@ export function UUIDInput({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [inputValue, setInputValue] = useState('');
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0, zoom: 1 });
   const [copied, setCopied] = useState(false);
 
 
-  // Update dimensions on resize and initial mount
+  // Update dimensions on resize, zoom change, and initial mount
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        setDimensions({
-          width: Math.round(rect.width),
-          height: Math.round(rect.height)
+        const zoom = getEffectiveZoom(containerRef.current);
+        
+        setDimensions(prev => {
+          const newDimensions = {
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+            zoom: zoom
+          };
+          // Only update if something changed
+          if (prev.width !== newDimensions.width || 
+              prev.height !== newDimensions.height || 
+              prev.zoom !== newDimensions.zoom) {
+            return newDimensions;
+          }
+          return prev;
         });
       }
     };
@@ -41,12 +79,43 @@ export function UUIDInput({
     // Initial update after a short delay to ensure DOM is ready
     const timeoutId = setTimeout(updateDimensions, 50);
     
+    // Listen for window resize
     window.addEventListener('resize', updateDimensions);
+    
+    // Use MutationObserver to detect zoom changes on body/html
+    // CSS zoom changes don't trigger resize events
+    const observer = new MutationObserver(() => {
+      updateDimensions();
+    });
+    
+    // Observe style changes on body and html
+    observer.observe(document.body, { 
+      attributes: true, 
+      attributeFilter: ['style'] 
+    });
+    observer.observe(document.documentElement, { 
+      attributes: true, 
+      attributeFilter: ['style'] 
+    });
+    
     return () => {
       clearTimeout(timeoutId);
       window.removeEventListener('resize', updateDimensions);
+      observer.disconnect();
     };
   }, []);
+
+  // Calculate canvas dimensions that ensure minimum encoding width
+  // When zoomed out, we need to render at higher resolution to maintain pixel density
+  const visualWidth = dimensions.width;
+  const visualHeight = dimensions.height;
+  
+  // Calculate the minimum canvas width needed to ensure encoding works
+  // We need at least MIN_ENCODING_WIDTH pixels for the encoding
+  const minCanvasWidth = Math.max(visualWidth, MIN_ENCODING_WIDTH);
+  const scaleFactor = visualWidth > 0 ? minCanvasWidth / visualWidth : 1;
+  const canvasWidth = Math.round(minCanvasWidth);
+  const canvasHeight = Math.round(visualHeight * scaleFactor);
 
   // Draw the encoded border
   useEffect(() => {
@@ -56,17 +125,16 @@ export function UUIDInput({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Use 1:1 pixel ratio for consistent screenshot decoding
-    // This means the canvas will be exactly the size we specify
-    canvas.width = dimensions.width;
-    canvas.height = dimensions.height;
+    // Set canvas internal dimensions
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
     // Clear canvas
-    ctx.clearRect(0, 0, dimensions.width, dimensions.height);
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-    // Draw the encoded border with specified width and radius
-    drawEncodedBorder(ctx, dimensions.width, dimensions.height, uuid, BORDER_WIDTH, BORDER_RADIUS);
-  }, [uuid, dimensions]);
+    // Draw the encoded border at the canvas resolution
+    drawEncodedBorder(ctx, canvasWidth, canvasHeight, uuid, BORDER_WIDTH, BORDER_RADIUS);
+  }, [uuid, dimensions, canvasWidth, canvasHeight]);
 
 
 
@@ -92,8 +160,12 @@ export function UUIDInput({
           ref={canvasRef}
           className="absolute inset-0 pointer-events-none"
           style={{
+            // Canvas CSS dimensions match the container's visual size
+            // The canvas internal resolution may be higher (canvasWidth x canvasHeight)
+            // and the browser will scale it down to fit
             width: dimensions.width || '100%',
             height: dimensions.height || '100%',
+            // pixelated rendering prevents blur when canvas is scaled
             imageRendering: 'pixelated',
             borderRadius: `${BORDER_RADIUS}px`,
           }}
