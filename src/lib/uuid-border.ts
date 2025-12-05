@@ -829,87 +829,249 @@ export function drawEncodedBorder(
 }
 
 /**
- * Recalibrate the start position AND segment width by finding the index sequence [0,1,2,3,4,5,6,7].
- * When zoom causes fractional pixel offsets, the initial marker detection may be
- * off by up to a full segment, and the segment width may be fractionally different.
- * The index sequence is a known pattern we can use to precisely determine segment boundaries.
+ * ============================================================================
+ * BARCODE-STYLE TIMING CALIBRATION
+ * ============================================================================
  * 
- * Returns the adjusted startX and refined segment width, or null if calibration fails.
+ * Like QR codes use finder patterns and timing patterns to determine cell
+ * boundaries, we use the INDEX SEQUENCE [0,1,2,3,4,5,6,7] as a timing pattern.
+ * 
+ * The approach:
+ * 1. Scan for color TRANSITIONS (edges), not fixed positions
+ * 2. Find the unique 8-color index sequence by matching run patterns
+ * 3. Measure actual pixel positions of each index color to get TRUE segment width
+ * 4. Extrapolate backwards to find the TRUE start position
+ * 
+ * This is scale-invariant and doesn't require guessing segment widths.
  */
-function recalibrateStartAndWidth(
+
+interface TimingCalibration {
+  /** Precise start X of the encoding (before start marker) */
+  startX: number;
+  /** Measured pixels per segment (may be fractional) */
+  pixelsPerSegment: number;
+  /** Per-channel adaptive thresholds learned from index colors */
+  rThreshold: number;
+  gThreshold: number;
+  bThreshold: number;
+}
+
+/**
+ * Find color transitions (edges) by scanning pixels and detecting index changes.
+ * Returns an array of { x, fromIdx, toIdx } for each transition.
+ */
+function findColorTransitions(
   getPixel: (x: number) => RGB,
-  approxStartX: number,
-  approxPixelsPerSegment: number
-): { startX: number; pixelsPerSegment: number } | null {
-  const MID = 133;
+  startX: number,
+  endX: number,
+  threshold: number = 133
+): Array<{ x: number; fromIdx: number; toIdx: number }> {
+  const transitions: Array<{ x: number; fromIdx: number; toIdx: number }> = [];
   
-  // Search range: up to 1.5 segments in either direction for offset
-  // Also try segment widths from 0.85x to 1.15x of detected width
-  const offsetRange = Math.ceil(approxPixelsPerSegment * 1.5);
-  const minWidth = Math.floor(approxPixelsPerSegment * 0.85);
-  const maxWidth = Math.ceil(approxPixelsPerSegment * 1.15);
+  const getIndex = (pixel: RGB): number => {
+    const rBit = pixel.r > threshold ? 1 : 0;
+    const gBit = pixel.g > threshold ? 1 : 0;
+    const bBit = pixel.b > threshold ? 1 : 0;
+    return rBit | (gBit << 1) | (bBit << 2);
+  };
   
-  let bestOffset = 0;
-  let bestWidth = approxPixelsPerSegment;
-  let bestScore = -1;
+  let prevIdx = -1;
   
-  // Try different segment widths
-  for (let width = minWidth; width <= maxWidth; width++) {
-    // For each width, try different offsets
-    for (let offset = -offsetRange; offset <= offsetRange; offset++) {
-      const candidateStart = approxStartX + offset;
-      let score = 0;
-      
-      // Read index colors with this offset and width
-      for (let i = 0; i < 8; i++) {
-        const segmentCenter = candidateStart + (6 + i) * width + Math.floor(width / 2);
-        const pixel = getPixel(segmentCenter);
-        
-        const rBit = pixel.r > MID ? 1 : 0;
-        const gBit = pixel.g > MID ? 1 : 0;
-        const bBit = pixel.b > MID ? 1 : 0;
-        const detected = rBit | (gBit << 1) | (bBit << 2);
-        
-        if (detected === i) {
-          score += 1;
-        } else if (Math.abs(detected - i) === 1) {
-          score += 0.5;
-        }
-      }
-      
-      if (score > bestScore) {
-        bestScore = score;
-        bestOffset = offset;
-        bestWidth = width;
+  for (let x = startX; x < endX; x++) {
+    const pixel = getPixel(x);
+    
+    // Handle undefined pixels (out of bounds)
+    if (!pixel) {
+      prevIdx = -1;
+      continue;
+    }
+    
+    // Skip non-encoded pixels (outside the gray range)
+    if (!isEncodedColor(pixel, 25)) {
+      prevIdx = -1;
+      continue;
+    }
+    
+    const idx = getIndex(pixel);
+    
+    if (prevIdx !== -1 && idx !== prevIdx) {
+      transitions.push({ x, fromIdx: prevIdx, toIdx: idx });
+    }
+    
+    prevIdx = idx;
+  }
+  
+  return transitions;
+}
+
+/**
+ * Find the index sequence [0,1,2,3,4,5,6,7] within the transitions.
+ * Returns the pixel positions where each index color STARTS.
+ * 
+ * The index sequence has 7 transitions: 0→1, 1→2, 2→3, 3→4, 4→5, 5→6, 6→7
+ * We return 8 positions: [start_of_0, start_of_1, ..., start_of_7]
+ */
+function findIndexSequenceFromTransitions(
+  transitions: Array<{ x: number; fromIdx: number; toIdx: number }>
+): number[] | null {
+  // Look for the characteristic pattern: 7 consecutive transitions
+  // 0→1, 1→2, 2→3, 3→4, 4→5, 5→6, 6→7
+  
+  for (let i = 0; i <= transitions.length - 7; i++) {
+    let matches = 0;
+    
+    // Check if we have the right sequence of transitions
+    for (let j = 0; j < 7; j++) {
+      const t = transitions[i + j];
+      if (t.fromIdx === j && t.toIdx === j + 1) {
+        matches++;
       }
     }
-  }
-  
-  // Require at least 6 out of 8 to match
-  if (bestScore >= 6) {
-    return {
-      startX: approxStartX + bestOffset,
-      pixelsPerSegment: bestWidth,
-    };
-  }
-  
-  // Fallback: if we got at least 5 matches, still use it
-  if (bestScore >= 5) {
-    return {
-      startX: approxStartX + bestOffset,
-      pixelsPerSegment: bestWidth,
-    };
+    
+    // Require at least 5 of 7 transitions to match
+    if (matches >= 5) {
+      // Found the pattern! Now extract the positions.
+      // The transition at index i+j is where color j ends and j+1 begins.
+      // So transitions[i+0].x is where color 1 starts (end of color 0).
+      
+      const positions: number[] = [];
+      
+      // Position of index 0: estimate from the transition before, or from the gap
+      const firstTransition = transitions[i];
+      const prevTransition = i > 0 ? transitions[i - 1] : null;
+      
+      if (prevTransition) {
+        // Index 0 started where the previous transition ended
+        positions.push(prevTransition.x);
+      } else {
+        // Estimate: index 0 started about one segment width before the 0→1 transition
+        const nextGap = transitions[i + 1].x - transitions[i].x;
+        positions.push(firstTransition.x - nextGap);
+      }
+      
+      // Positions of indices 1-7: directly from the transitions
+      for (let j = 0; j < 7; j++) {
+        positions.push(transitions[i + j].x);
+      }
+      
+      return positions; // Returns 8 positions: start of indices 0,1,2,3,4,5,6,7
+    }
   }
   
   return null;
 }
 
 /**
- * Decode a UUID from a row of pixels with Reed-Solomon error correction
- * Uses adaptive calibration for JPEG robustness
+ * Calibrate timing using the index sequence as a reference pattern.
+ * This is similar to how QR codes use timing patterns to determine module size.
+ * 
+ * @param getPixel - Pixel getter function
+ * @param searchStart - Start of search region  
+ * @param searchEnd - End of search region
+ * @returns Calibration data or null if calibration fails
+ */
+function calibrateFromIndexSequence(
+  getPixel: (x: number) => RGB,
+  searchStart: number,
+  searchEnd: number
+): TimingCalibration | null {
+  // Step 1: Find transitions
+  const transitions = findColorTransitions(getPixel, searchStart, searchEnd);
+  
+  if (transitions.length < 7) {
+    return null;
+  }
+  
+  // Step 2: Find the index sequence pattern in the transitions
+  const indexPositions = findIndexSequenceFromTransitions(transitions);
+  
+  if (!indexPositions || indexPositions.length < 8) {
+    return null;
+  }
+  
+  // Step 3: Calculate segment width from the measured positions
+  // We have 8 positions for indices 0-7, spanning 7 segments
+  // Use total span / 7 for average segment width (more accurate than median)
+  const totalSpan = indexPositions[7] - indexPositions[0];
+  const pixelsPerSegment = totalSpan / 7;
+  
+  // Sanity check: segment width should be reasonable (2-20 pixels)
+  if (pixelsPerSegment < 2 || pixelsPerSegment > 20) {
+    return null;
+  }
+  
+  // Step 4: Calculate start position
+  // Index 0 starts at indexPositions[0], and index 0 is segment 6
+  // So: indexPositions[0] = startX + 6 * pixelsPerSegment
+  // startX = indexPositions[0] - 6 * pixelsPerSegment
+  const startX = indexPositions[0] - 6 * pixelsPerSegment;
+  
+  // Step 5: Learn adaptive thresholds from the actual index colors
+  // Sample the center of each index segment using the measured positions
+  const indexColors: RGB[] = [];
+  for (let i = 0; i < 8; i++) {
+    // Use the measured position for this index, centered
+    const segStart = indexPositions[i];
+    const segEnd = i < 7 ? indexPositions[i + 1] : segStart + pixelsPerSegment;
+    const centerX = Math.floor((segStart + segEnd) / 2);
+    indexColors.push(getPixel(centerX));
+  }
+  
+  // Build thresholds from actual colors
+  // R channel: indices 0,2,4,6 have low R; indices 1,3,5,7 have high R
+  const rLow = [0, 2, 4, 6].map(i => indexColors[i].r);
+  const rHigh = [1, 3, 5, 7].map(i => indexColors[i].r);
+  const rThreshold = (median4(rLow) + median4(rHigh)) / 2;
+  
+  // G channel: indices 0,1,4,5 have low G; indices 2,3,6,7 have high G
+  const gLow = [0, 1, 4, 5].map(i => indexColors[i].g);
+  const gHigh = [2, 3, 6, 7].map(i => indexColors[i].g);
+  const gThreshold = (median4(gLow) + median4(gHigh)) / 2;
+  
+  // B channel: indices 0,1,2,3 have low B; indices 4,5,6,7 have high B
+  const bLow = [0, 1, 2, 3].map(i => indexColors[i].b);
+  const bHigh = [4, 5, 6, 7].map(i => indexColors[i].b);
+  const bThreshold = (median4(bLow) + median4(bHigh)) / 2;
+  
+  return {
+    startX,
+    pixelsPerSegment,
+    rThreshold,
+    gThreshold,
+    bThreshold,
+  };
+}
+
+/** Helper: median of 4 values */
+function median4(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  return (sorted[1] + sorted[2]) / 2;
+}
+
+/**
+ * Decode index using calibrated per-channel thresholds.
+ */
+function decodeIndexWithCalibration(pixel: RGB, cal: TimingCalibration): number {
+  const rBit = pixel.r > cal.rThreshold ? 1 : 0;
+  const gBit = pixel.g > cal.gThreshold ? 1 : 0;
+  const bBit = pixel.b > cal.bThreshold ? 1 : 0;
+  return rBit | (gBit << 1) | (bBit << 2);
+}
+
+/**
+ * Decode a UUID from a row of pixels with Reed-Solomon error correction.
+ * 
+ * Uses barcode-style timing calibration:
+ * 1. Find color transitions (edges) in the pixel row
+ * 2. Locate the index sequence [0,1,2,3,4,5,6,7] as a timing pattern
+ * 3. Measure actual segment boundaries from the transitions
+ * 4. Use adaptive thresholds learned from the index colors
+ * 
+ * This approach is scale-invariant and handles zoom/compression artifacts.
+ * 
  * @param getPixel - Function to get pixel color at x position
- * @param startX - Starting x position of the encoded border
- * @param width - Width of the encoded border (not the entire image)
+ * @param startX - Approximate starting x position (from marker detection)
+ * @param width - Approximate width of the encoded border
  * @param rsConfig - Reed-Solomon configuration
  * @returns Decoded UUID or null if decoding fails
  */
@@ -920,57 +1082,83 @@ export function decodeFromPixelRow(
   rsConfig: RSConfig = DEFAULT_RS_CONFIG
 ): { uuid: string; endMarkerMatch: boolean; errorsCorrected: boolean } | null {
   const totalSegments = calculateTotalSegments(rsConfig);
-  const pixelsPerSegment = Math.floor(width / totalSegments);
   
-  if (pixelsPerSegment < 1) return null;
+  // === BARCODE-STYLE TIMING CALIBRATION ===
+  // Instead of using fixed pixel positions, we find the index sequence
+  // and measure actual segment boundaries from color transitions.
   
-  // Try to recalibrate start position using the index sequence
-  // This helps when zoom causes sub-pixel misalignment
-  const calibratedStartX = recalibrateStartPosition(getPixel, startX, pixelsPerSegment);
-  const effectiveStartX = calibratedStartX ?? startX;
+  // Expand search region slightly to account for marker detection error
+  const searchStart = Math.max(0, startX - 20);
+  const searchEnd = startX + width + 20;
   
-  // Read 8 index colors (positions 6-13)
-  const indexColors: RGB[] = [];
-  for (let i = 0; i < 8; i++) {
-    const segmentCenterX = effectiveStartX + (6 + i) * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
-    indexColors.push(getPixel(segmentCenterX));
+  // Try the new barcode-style calibration first
+  const timing = calibrateFromIndexSequence(getPixel, searchStart, searchEnd);
+  
+  // Debug: log calibration result
+  console.log(`[DEBUG] calibrateFromIndexSequence: timing=${timing ? JSON.stringify({startX: timing.startX.toFixed(2), pps: timing.pixelsPerSegment.toFixed(2), rT: timing.rThreshold.toFixed(1), gT: timing.gThreshold.toFixed(1), bT: timing.bThreshold.toFixed(1)}) : 'null'}`);
+  
+  let effectiveStartX: number;
+  let pixelsPerSegment: number;
+  let decodeIndex: (x: number) => number;
+  
+  if (timing) {
+    // Use the calibrated values
+    effectiveStartX = timing.startX;
+    pixelsPerSegment = timing.pixelsPerSegment;
+    decodeIndex = (x: number) => decodeIndexWithCalibration(getPixel(x), timing);
+  } else {
+    // Fallback to original approach if timing calibration fails
+    pixelsPerSegment = Math.floor(width / totalSegments);
+    if (pixelsPerSegment < 1) return null;
+    
+    effectiveStartX = startX;
+    
+    // Read index colors and build calibration the old way
+    const indexColors: RGB[] = [];
+    for (let i = 0; i < 8; i++) {
+      const segmentCenterX = effectiveStartX + (6 + i) * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
+      indexColors.push(getPixel(segmentCenterX));
+    }
+    
+    const calibration = buildCalibratedIndex(indexColors);
+    if (!calibration) return null;
+    
+    const MIN_RANGE = 10;
+    if (calibration.rRange < MIN_RANGE || calibration.gRange < MIN_RANGE || calibration.bRange < MIN_RANGE) {
+      return null;
+    }
+    
+    decodeIndex = (x: number) => findIndexCalibrated(getPixel(x), calibration);
   }
   
-  // Build calibrated index for JPEG-robust decoding
-  const calibration = buildCalibratedIndex(indexColors);
-  if (!calibration) return null;
-  
-  // Verify we have sufficient color variation
-  // With OFFSET=12, original range is 24. Require at least 10 units in each channel.
-  const MIN_RANGE = 10;
-  if (calibration.rRange < MIN_RANGE || calibration.gRange < MIN_RANGE || calibration.bRange < MIN_RANGE) {
-    return null; // Not enough color variation - probably not the encoded border
-  }
-  
-  // Helper to decode index using calibration
-  const decodeIndex = (x: number): number => {
-    return findIndexCalibrated(getPixel(x), calibration);
-  };
-  
-  // Verify start marker pattern: [1,1,1,0,1,2]
+  // === VERIFY START MARKER ===
+  // Pattern: [1,1,1,0,1,2]
   const startPattern: number[] = [];
   for (let i = 0; i < 6; i++) {
-    const segmentCenterX = effectiveStartX + i * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
+    const segmentCenterX = Math.floor(effectiveStartX + i * pixelsPerSegment + pixelsPerSegment / 2);
     startPattern.push(decodeIndex(segmentCenterX));
   }
   
-  // Check start marker - allow some tolerance due to compression
   let startMatchCount = 0;
   for (let i = 0; i < 6; i++) {
     if (startPattern[i] === MARKER_START_PATTERN[i]) startMatchCount++;
   }
-  // Require at least 4 of 6 to match (allows for some errors)
-  if (startMatchCount < 4) return null;
   
-  // Calculate data size
+  console.log(`[DEBUG] Start marker: [${startPattern.join(',')}] matches=${startMatchCount}/6`);
+  
+  // Require at least 3 of 6 to match (more lenient for zoom-damaged images)
+  // RS error correction will handle remaining errors
+  if (startMatchCount < 3) return null;
+  
+  // === READ DATA BYTES ===
   const nsym = calculateParityBytes(16, rsConfig.redundancyFactor);
   const totalBytes = 16 + nsym;
   const dataStartSegment = 14; // After start marker (6) and index (8)
+  
+  // Helper to get segment center X position (handles fractional segment widths)
+  const getSegmentCenterX = (segmentIndex: number): number => {
+    return Math.floor(effectiveStartX + segmentIndex * pixelsPerSegment + pixelsPerSegment / 2);
+  };
   
   // Read RS-encoded data (4 color segments per byte)
   const bytes: number[] = [];
@@ -980,7 +1168,7 @@ export function decodeFromPixelRow(
     // Read 4 segments: highHigh, highLow, lowHigh, lowLow
     const segments: number[] = [];
     for (let s = 0; s < 4; s++) {
-      const segmentCenterX = effectiveStartX + (baseSegment + s) * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
+      const segmentCenterX = getSegmentCenterX(baseSegment + s);
       segments.push(decodeIndex(segmentCenterX));
     }
     
@@ -990,11 +1178,12 @@ export function decodeFromPixelRow(
     bytes.push((highNibble << 4) | lowNibble);
   }
   
-  // Verify end marker pattern: [2,1,0,1,1,1]
+  // === VERIFY END MARKER ===
+  // Pattern: [2,1,0,1,1,1]
   const endMarkerStart = dataStartSegment + totalBytes * 4;
   const endPattern: number[] = [];
   for (let i = 0; i < 6; i++) {
-    const segmentCenterX = effectiveStartX + (endMarkerStart + i) * pixelsPerSegment + Math.floor(pixelsPerSegment / 2);
+    const segmentCenterX = getSegmentCenterX(endMarkerStart + i);
     endPattern.push(decodeIndex(segmentCenterX));
   }
   
