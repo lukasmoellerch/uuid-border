@@ -165,8 +165,6 @@ export function UUIDInput({
             // and the browser will scale it down to fit
             width: dimensions.width || '100%',
             height: dimensions.height || '100%',
-            // pixelated rendering prevents blur when canvas is scaled
-            imageRendering: 'pixelated',
             borderRadius: `${BORDER_RADIUS}px`,
           }}
         />
