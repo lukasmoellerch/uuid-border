@@ -23,7 +23,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  font-family: var(--font-mono), "SF Mono", Monaco, monospace;
   font-weight: 400;
   line-height: 1.7;
   letter-spacing: 0.01em;
@@ -33,7 +33,7 @@ body {
 
 /* Elegant typography defaults */
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-serif), Georgia, serif;
+  font-family: var(--font-mono), "SF Mono", Monaco, monospace;
   font-weight: 300;
   letter-spacing: 0.02em;
   line-height: 1.3;
