@@ -395,7 +395,7 @@ export default function DecodePage() {
                     key={index}
                     className="flex items-center justify-between p-4 bg-[var(--surface)] border border-[var(--border)] rounded-sm"
                   >
-                    <code className="mono text-sm text-[var(--accent)] tracking-wide">
+                    <code className="mono text-sm text-[var(--accent)]">
                       {uuid}
                     </code>
                     <button

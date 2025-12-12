@@ -43,7 +43,7 @@ h1, h2, h3, h4, h5, h6 {
 code, pre, .mono {
   font-family: var(--font-mono), "SF Mono", Monaco, monospace;
   font-weight: 400;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 /* Custom selection colors - warm and elegant */
