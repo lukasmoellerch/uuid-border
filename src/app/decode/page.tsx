@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useCallback, useRef } from 'react';
 import { RGB, TOTAL_SEGMENTS, decodeFromPixelRow, findEncodingByMarkers, isEncodedColor } from '@/lib/uuid-border';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function DecodePage() {
   const [image, setImage] = useState<string | null>(null);
@@ -10,6 +11,7 @@ export default function DecodePage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -306,57 +308,123 @@ export default function DecodePage() {
     }
   }, [processImage]);
 
+  const copyUuid = useCallback((uuid: string, index: number) => {
+    navigator.clipboard.writeText(uuid);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  }, []);
+
+  const clearImage = useCallback(() => {
+    setImage(null);
+    setDecodedUuids([]);
+    setDebugInfo('');
+  }, []);
+
   return (
     <main 
-      className="min-h-screen bg-[var(--background)]"
+      className="min-h-screen relative"
       onPaste={handlePaste}
       tabIndex={0}
     >
-      <div className="max-w-2xl mx-auto px-8 py-16">
-        {/* Header */}
-        <header className="flex justify-between items-baseline mb-20">
-          <Link 
-            href="/" 
-            className="text-sm tracking-wider text-[var(--muted)] hover:text-[var(--foreground)] transition-colors uppercase"
-          >
-            <span className="mr-1">←</span> Encode
-          </Link>
-          <h1 className="text-2xl font-light tracking-wide text-[var(--foreground)]">
-            Decode
-          </h1>
-        </header>
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex justify-between items-center glass rounded-2xl px-6 py-3 border border-[var(--border)]">
+            <div className="flex items-center gap-2">
+              <Link 
+                href="/"
+                className="btn-ghost text-xs tracking-wider"
+              >
+                Encode
+              </Link>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
+              <span className="text-sm font-medium tracking-wide text-[var(--foreground)]">
+                Decoder
+              </span>
+            </div>
 
-        {/* Subtitle */}
-        <p className="text-[var(--muted)] text-lg font-light mb-12 max-w-md leading-relaxed">
-          Extract hidden UUIDs from screenshots. Drop an image or paste from your clipboard.
-        </p>
+            <ThemeToggle />
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div className="max-w-2xl mx-auto px-6 pt-32 pb-20">
+        {/* Hero Section */}
+        <div className="space-y-6 mb-12 animate-fade-in-up">
+          <div className="inline-flex items-center gap-2 badge mb-4">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M11 7l-3.2 9h1.9l.7-2h3.2l.7 2h1.9L13 7h-2zm-.15 5.65L12 9l1.15 3.65h-2.3zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zm-2 5.79V18h-3.52L12 20.48 9.52 18H6v-3.52L3.52 12 6 9.52V6h3.52L12 3.52 14.48 6H18v3.52L20.48 12 18 14.48z"/>
+            </svg>
+            <span>Extract</span>
+          </div>
+          
+          <h1 className="text-4xl md:text-5xl font-light tracking-tight text-[var(--foreground)] leading-[1.1]">
+            Reveal the{' '}
+            <span className="gradient-text font-normal">hidden</span>
+          </h1>
+          
+          <p className="text-lg text-[var(--muted)] font-light leading-relaxed max-w-lg">
+            Drop a screenshot to extract encoded UUIDs. Paste from clipboard with{' '}
+            <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-xs mono">⌘V</kbd>
+          </p>
+        </div>
 
         {/* Drop Zone */}
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onClick={() => fileInputRef.current?.click()}
-          className={`
-            cursor-pointer border transition-all duration-300 rounded-sm
-            ${isDragging 
-              ? 'border-[var(--accent)] bg-[var(--surface)] shadow-sm' 
-              : 'border-[var(--border)] hover:border-[var(--accent)]/50 hover:bg-[var(--surface)]/50'
-            }
-          `}
+        <div 
+          className="animate-fade-in-up stagger-2" 
+          style={{ opacity: 0 }}
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          
-          <div className="py-20 px-8 text-center">
-            <p className="text-[var(--muted)] text-base font-light italic">
-              {isDragging ? 'Release to decode...' : 'Drop image or paste from clipboard'}
-            </p>
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={() => fileInputRef.current?.click()}
+            className={`drop-zone ${isDragging ? 'dragging' : ''}`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            
+            <div className="relative z-10 flex flex-col items-center gap-4">
+              {/* Icon */}
+              <div className={`
+                w-16 h-16 rounded-2xl flex items-center justify-center
+                bg-[var(--surface)] border border-[var(--border)]
+                transition-all duration-300
+                ${isDragging ? 'scale-110 border-[var(--accent)]' : ''}
+              `}>
+                {isDragging ? (
+                  <svg className="w-7 h-7 text-[var(--accent)] animate-float" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                ) : (
+                  <svg className="w-7 h-7 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                  </svg>
+                )}
+              </div>
+              
+              {/* Text */}
+              <div className="text-center">
+                <p className={`
+                  text-base font-light transition-colors duration-300
+                  ${isDragging ? 'text-[var(--accent)]' : 'text-[var(--muted)]'}
+                `}>
+                  {isDragging ? 'Release to decode' : 'Drop image or click to browse'}
+                </p>
+                <p className="text-sm text-[var(--muted)] opacity-60 mt-1">
+                  PNG, JPEG, WebP supported
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -365,58 +433,186 @@ export default function DecodePage() {
 
         {/* Results */}
         {(image || isProcessing || decodedUuids.length > 0 || debugInfo) && (
-          <div className="mt-12 space-y-8">
+          <div className="mt-10 space-y-6 animate-fade-in">
             {/* Preview */}
             {image && (
-              <div className="border border-[var(--border)] p-3 rounded-sm bg-[var(--surface)]">
-                <img 
-                  src={image} 
-                  alt="Screenshot" 
-                  className="max-w-full h-auto"
-                />
+              <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--surface)]">
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--background-secondary)]">
+                  <span className="text-xs tracking-wider uppercase text-[var(--muted)]">
+                    Preview
+                  </span>
+                  <button
+                    onClick={clearImage}
+                    className="text-xs tracking-wider uppercase text-[var(--muted)] hover:text-[var(--foreground)] transition-colors flex items-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Clear
+                  </button>
+                </div>
+                
+                {/* Image */}
+                <div className="p-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={image} 
+                    alt="Screenshot" 
+                    className="max-w-full h-auto rounded-lg"
+                  />
+                </div>
               </div>
             )}
 
             {/* Processing */}
             {isProcessing && (
-              <p className="text-[var(--muted)] text-base font-light italic animate-pulse">
-                Scanning for hidden data...
-              </p>
+              <div className="flex items-center justify-center gap-3 py-8">
+                <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin-slow" />
+                <p className="text-[var(--muted)] font-light">
+                  Scanning for hidden data...
+                </p>
+              </div>
             )}
 
             {/* Decoded UUIDs */}
             {decodedUuids.length > 0 && (
               <div className="space-y-4">
-                <span className="text-xs tracking-widest uppercase text-[var(--muted)] block">
-                  Discovered {decodedUuids.length === 1 ? 'UUID' : 'UUIDs'}
-                </span>
-                {decodedUuids.map((uuid, index) => (
-                  <div 
-                    key={index}
-                    className="flex items-center justify-between p-4 bg-[var(--surface)] border border-[var(--border)] rounded-sm"
-                  >
-                    <code className="mono text-sm text-[var(--accent)] tracking-wide">
-                      {uuid}
-                    </code>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(uuid)}
-                      className="text-xs tracking-wider uppercase text-[var(--muted)] hover:text-[var(--foreground)] transition-colors ml-4"
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-[var(--success)]" />
+                  <span className="text-xs tracking-widest uppercase text-[var(--muted)]">
+                    {decodedUuids.length === 1 ? '1 UUID discovered' : `${decodedUuids.length} UUIDs discovered`}
+                  </span>
+                </div>
+                
+                <div className="space-y-3">
+                  {decodedUuids.map((uuid, index) => (
+                    <div 
+                      key={index}
+                      className="group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] card-hover"
                     >
-                      Copy
-                    </button>
-                  </div>
-                ))}
+                      {/* Success indicator */}
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[var(--success)] to-[var(--accent)]" />
+                      
+                      <div className="flex items-center justify-between p-4 pl-5">
+                        <code className="mono text-base text-[var(--foreground)] tracking-wide">
+                          {uuid}
+                        </code>
+                        
+                        <button
+                          onClick={() => copyUuid(uuid, index)}
+                          className="icon-btn ml-3"
+                          title={copiedIndex === index ? 'Copied!' : 'Copy UUID'}
+                        >
+                          {copiedIndex === index ? (
+                            <svg className="w-4 h-4 text-[var(--success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Debug info */}
-            {debugInfo && !isProcessing && (
-              <p className="mono text-xs text-[var(--muted)]/70 whitespace-pre-line leading-relaxed">
-                {debugInfo}
-              </p>
+            {/* Debug info - only when no results */}
+            {debugInfo && !isProcessing && decodedUuids.length === 0 && (
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg className="w-4 h-4 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                  </svg>
+                  <span className="text-xs tracking-wider uppercase text-[var(--muted)]">
+                    No UUIDs found
+                  </span>
+                </div>
+                <p className="mono text-xs text-[var(--muted)] opacity-70 whitespace-pre-line leading-relaxed">
+                  {debugInfo}
+                </p>
+              </div>
             )}
           </div>
         )}
+
+        {/* Instructions */}
+        {!image && !isProcessing && decodedUuids.length === 0 && (
+          <div className="mt-16 animate-fade-in-up stagger-3" style={{ opacity: 0 }}>
+            <h2 className="text-xs tracking-widest uppercase text-[var(--muted)] mb-6">
+              Quick tips
+            </h2>
+            
+            <div className="grid gap-4">
+              {[
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                    </svg>
+                  ),
+                  title: 'Paste from clipboard',
+                  description: 'Use ⌘V / Ctrl+V to paste screenshots directly',
+                },
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                    </svg>
+                  ),
+                  title: 'Error correction',
+                  description: 'Works with JPEG compression, noise, and scaling',
+                },
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                    </svg>
+                  ),
+                  title: 'Round-trip safe',
+                  description: 'Encode → Screenshot → Decode reliably',
+                },
+              ].map((tip, index) => (
+                <div 
+                  key={index}
+                  className="flex gap-4 p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] card-hover"
+                >
+                  <div className="text-[var(--accent)] opacity-70">
+                    {tip.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-[var(--foreground)] mb-0.5">
+                      {tip.title}
+                    </h3>
+                    <p className="text-sm text-[var(--muted)]">
+                      {tip.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <footer className="mt-20 pt-8 border-t border-[var(--border)]">
+          <div className="flex items-center justify-between text-xs text-[var(--muted)]">
+            <span>A steganography experiment</span>
+            <Link 
+              href="/" 
+              className="inline-flex items-center gap-2 hover:text-[var(--accent)] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+              </svg>
+              Create new encoding
+            </Link>
+          </div>
+        </footer>
       </div>
     </main>
   );
