@@ -171,22 +171,22 @@ export function UUIDInput({
           }}
         />
         
-        {/* Actual input */}
-        <input
-          type="text"
+        {/* Actual textarea */}
+        <textarea
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder={placeholder}
-          className="w-full h-full px-4 py-2 bg-transparent outline-none mono placeholder:text-[var(--muted)]/50 placeholder:font-light placeholder:italic tracking-wide"
+          className="w-full h-full px-4 py-2 bg-transparent outline-none mono placeholder:text-[var(--muted)]/50 placeholder:font-light placeholder:italic tracking-wide resize-none"
           style={{
             fontSize: '1rem',
             margin: `${BORDER_WIDTH}px`,
             width: `calc(100% - ${BORDER_WIDTH * 2}px)`,
-            height: '50px',
+            minHeight: '50px',
             borderRadius: `${BORDER_RADIUS - BORDER_WIDTH}px`,
             paddingLeft: `${BORDER_RADIUS + 4}px`,
             paddingRight: `${BORDER_RADIUS + 4}px`,
           }}
+          rows={3}
         />
       </div>
 
