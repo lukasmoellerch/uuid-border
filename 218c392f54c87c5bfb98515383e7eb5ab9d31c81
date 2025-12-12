@@ -8,7 +8,7 @@ src/app/page.tsx: +3[3],+14[3],+21[3],+24[3],+26[3],+28[3],+31[3],+33[3],+35-36[
 
 Conversations:
 
-[0]: 83cd9baa-ad83-4281-aa13-d4d33216b5ce; 83cd9baa; unknown;
-[1]: 5f4c0226-72b6-4e7e-bdbe-a01e5da16fe4; 5f4c0226; unknown;
-[2]: e93e3615-2243-4061-a19d-e5f7674142cf; e93e3615; unknown;
-[3]: 2df7b1e6-f9f2-47ca-b105-d74fe1f3ea13; 2df7b1e6; unknown;
+[0]: 83cd9baa-ad83-4281-aa13-d4d33216b5ce; 83cd9baa; unknown; composer;
+[1]: 5f4c0226-72b6-4e7e-bdbe-a01e5da16fe4; 5f4c0226; unknown; composer;
+[2]: e93e3615-2243-4061-a19d-e5f7674142cf; e93e3615; unknown; composer;
+[3]: 2df7b1e6-f9f2-47ca-b105-d74fe1f3ea13; 2df7b1e6; unknown; composer;
