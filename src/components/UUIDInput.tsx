@@ -47,6 +47,7 @@ export function UUIDInput({
 }: UUIDInputProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [inputValue, setInputValue] = useState('');
   const [dimensions, setDimensions] = useState({ width: 0, height: 0, zoom: 1 });
   const [copied, setCopied] = useState(false);
@@ -117,6 +118,17 @@ export function UUIDInput({
   const canvasWidth = Math.round(minCanvasWidth);
   const canvasHeight = Math.round(visualHeight * scaleFactor);
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    // Set height to scrollHeight to fit content
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [inputValue]);
+
   // Draw the encoded border
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -171,22 +183,26 @@ export function UUIDInput({
           }}
         />
         
-        {/* Actual input */}
-        <input
-          type="text"
+        {/* Actual input - textarea for multi-line support */}
+        <textarea
+          ref={textareaRef}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder={placeholder}
-          className="w-full h-full px-4 py-2 bg-transparent outline-none mono placeholder:text-[var(--muted)]/50 placeholder:font-light placeholder:italic tracking-wide"
+          className="w-full px-4 py-2 bg-transparent outline-none mono placeholder:text-[var(--muted)]/50 placeholder:font-light placeholder:italic tracking-wide resize-none overflow-hidden"
           style={{
             fontSize: '1rem',
             margin: `${BORDER_WIDTH}px`,
             width: `calc(100% - ${BORDER_WIDTH * 2}px)`,
-            height: '50px',
+            minHeight: '50px',
             borderRadius: `${BORDER_RADIUS - BORDER_WIDTH}px`,
             paddingLeft: `${BORDER_RADIUS + 4}px`,
             paddingRight: `${BORDER_RADIUS + 4}px`,
+            paddingTop: '14px',
+            paddingBottom: '14px',
+            lineHeight: '1.5',
           }}
+          rows={1}
         />
       </div>
 
