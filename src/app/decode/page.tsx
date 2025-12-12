@@ -387,7 +387,7 @@ export default function DecodePage() {
             {/* Decoded UUIDs */}
             {decodedUuids.length > 0 && (
               <div className="space-y-4">
-                <span className="text-xs tracking-widest uppercase text-[var(--muted)] block">
+                <span className="mono text-xs tracking-widest uppercase text-[var(--muted)] block">
                   Discovered {decodedUuids.length === 1 ? 'UUID' : 'UUIDs'}
                 </span>
                 {decodedUuids.map((uuid, index) => (
@@ -400,7 +400,7 @@ export default function DecodePage() {
                     </code>
                     <button
                       onClick={() => navigator.clipboard.writeText(uuid)}
-                      className="text-xs tracking-wider uppercase text-[var(--muted)] hover:text-[var(--foreground)] transition-colors ml-4"
+                      className="mono text-xs tracking-wider uppercase text-[var(--muted)] hover:text-[var(--foreground)] transition-colors ml-4"
                     >
                       Copy
                     </button>

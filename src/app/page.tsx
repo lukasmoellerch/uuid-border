@@ -45,7 +45,7 @@ export default function EncoderPage() {
 
         {/* UUID Display */}
         <div className="pt-6 border-t border-[var(--border)]">
-          <span className="text-xs tracking-widest uppercase text-[var(--muted)] block mb-3">
+          <span className="mono text-xs tracking-widest uppercase text-[var(--muted)] block mb-3">
             Current UUID
           </span>
           <code className="mono text-sm text-[var(--accent)] tracking-wide">
