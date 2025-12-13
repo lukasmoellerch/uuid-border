@@ -1,0 +1,13 @@
+version: 1
+conversationId: aad3b691-47ff-44ad-ad8e-6971fe9b42b9
+title: null
+model: claude-4.5-opus-high
+mode: agent
+updatedAt: 1765601697656
+tldr: The user asked a direct question about the number of tool calls. The
+  conversation was very brief and consisted only of this single query.
+overview: The user's intent was to determine the number of tool calls. The
+  conversation was extremely brief, consisting solely of the user's direct query
+  'number_of_tool_calls'. No further context or interaction was provided, so the
+  outcome is limited to the user posing this question.
+bullets: []
