@@ -3,11 +3,16 @@
 import { generateUuid } from '@/lib/uuid-border';
 import Link from 'next/link';
 import { UUIDInput } from '@/components/UUIDInput';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 
 export default function EncoderPage() {
+  // Initialize with empty string to avoid hydration mismatch
+  // UUID is generated client-side only since it uses Math.random()
+  const [uuid, setUuid] = useState('');
 
-  const [uuid, setUuid] = useState(generateUuid());
+  useEffect(() => {
+    setUuid(generateUuid());
+  }, []);
 
   const regenerateUuid = useCallback(() => {
     setUuid(generateUuid());
@@ -75,24 +80,28 @@ export default function EncoderPage() {
             <span className="text-xs tracking-widest uppercase text-[var(--muted)]">
               Current UUID
             </span>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[var(--success)] animate-pulse" />
-              <span className="text-xs text-[var(--success)]">Active</span>
-            </div>
+            {uuid && (
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[var(--success)] animate-pulse" />
+                <span className="text-xs text-[var(--success)]">Active</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-between gap-4 p-4 rounded-lg bg-[var(--background)] border border-[var(--border)]">
             <code className="mono text-sm md:text-base text-[var(--accent)] tracking-wide break-all">
-              {uuid}
+              {uuid || <span className="text-[var(--muted)]">Generating...</span>}
             </code>
-            <button
-              onClick={() => navigator.clipboard.writeText(uuid)}
-              className="flex-shrink-0 p-2 rounded-md hover:bg-[var(--surface-hover)] transition-colors"
-              title="Copy UUID"
-            >
-              <svg className="w-4 h-4 text-[var(--muted)] hover:text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            </button>
+            {uuid && (
+              <button
+                onClick={() => navigator.clipboard.writeText(uuid)}
+                className="flex-shrink-0 p-2 rounded-md hover:bg-[var(--surface-hover)] transition-colors"
+                title="Copy UUID"
+              >
+                <svg className="w-4 h-4 text-[var(--muted)] hover:text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 

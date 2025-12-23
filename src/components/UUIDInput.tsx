@@ -133,13 +133,23 @@ export function UUIDInput({
     // Clear canvas
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-    // Draw the encoded border at the canvas resolution
-    drawEncodedBorder(ctx, canvasWidth, canvasHeight, uuid, BORDER_WIDTH, BORDER_RADIUS);
+    // Only draw encoded border if we have a valid UUID
+    if (uuid) {
+      drawEncodedBorder(ctx, canvasWidth, canvasHeight, uuid, BORDER_WIDTH, BORDER_RADIUS);
+    } else {
+      // Draw a simple placeholder border when no UUID
+      ctx.strokeStyle = 'rgba(139, 139, 158, 0.3)';
+      ctx.lineWidth = BORDER_WIDTH;
+      ctx.beginPath();
+      ctx.roundRect(BORDER_WIDTH / 2, BORDER_WIDTH / 2, canvasWidth - BORDER_WIDTH, canvasHeight - BORDER_WIDTH, BORDER_RADIUS);
+      ctx.stroke();
+    }
   }, [uuid, dimensions, canvasWidth, canvasHeight]);
 
 
 
   const copyUuid = useCallback(() => {
+    if (!uuid) return;
     navigator.clipboard.writeText(uuid);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
